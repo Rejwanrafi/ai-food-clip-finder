@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ai-food-clip-finder
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MAX_UPLOAD_BYTES
+        value: "10737418240"
+      - key: FRAME_INTERVAL_SECONDS
+        value: "4"
