@@ -1,1 +1,58 @@
-
+<!doctype html><html lang="bn"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#101b35"><title>AI Food Clip Finder</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fc;color:#182238;font-family:system-ui,-apple-system,"Noto Sans Bengali",sans-serif}
+header{background:linear-gradient(135deg,#111d3b,#263f79);color:white;padding:30px 18px 26px}
+main{max-width:760px;margin:auto;padding:16px}h1{font-size:clamp(25px,7vw,36px);margin:0 0 8px}h2{font-size:20px;margin:0 0 14px}
+p{line-height:1.6}.sub{color:#dbe5ff;margin:0}.card{background:white;border:1px solid #e1e7f0;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 7px 22px #1c31500a}
+label{display:block;font-weight:700;margin:15px 0 7px}input{width:100%;font-size:16px;padding:13px;border:1px solid #cbd5e3;border-radius:12px;background:#fff}
+button,.download{display:inline-flex;justify-content:center;align-items:center;gap:8px;background:#2457d6;color:white;border:0;border-radius:12px;padding:13px 16px;font-weight:750;font-size:15px;text-decoration:none;cursor:pointer}
+button:disabled{opacity:.55}.primary{width:100%;margin-top:16px;min-height:50px}.hint{font-size:13px;color:#64718a}
+.notice{background:#fff7e8;border:1px solid #f2d9a8;padding:12px;border-radius:12px;color:#70501b;font-size:13px;line-height:1.5}
+.status{margin-top:14px;background:#edf3ff;padding:13px;border-radius:12px;font-size:14px}
+.result{border-top:1px solid #e8edf4;padding:16px 0}.result:first-child{border-top:0}
+.meta{font-size:13px;color:#4d5f82;margin:6px 0}.score{background:#eef2ff;color:#294ab0;border-radius:30px;padding:4px 9px;font-weight:700}
+.download{margin-top:6px;width:100%}.hide{display:none}.filelabel{border:1px dashed #9aaac3;padding:18px;border-radius:12px;text-align:center;background:#f9fbff}
+@media(min-width:650px){main{padding:24px}.card{padding:24px}.download{width:auto}}
+</style></head><body>
+<header><main style="padding:0"><h1>🍜 AI Food Clip Finder</h1><p class="sub">বড় ফুড ভ্লগ থেকে AI দিয়ে সেরা খাবার, টেস্টিং ও রিঅ্যাকশনের দৃশ্য খুঁজুন এবং MP4 ক্লিপ ডাউনলোড করুন।</p></main></header>
+<main>
+<section class="card"><h2>ভিডিও বিশ্লেষণ</h2>
+<label for="video">ভিডিও নির্বাচন করুন</label><div class="filelabel"><input id="video" type="file" accept="video/*"><p class="hint">MP4 / MOV / MKV / WEBM / AVI</p></div>
+<label for="key">OpenAI API Key (যদি সার্ভারে সেট করা না থাকে)</label><input id="key" type="password" autocomplete="off" placeholder="sk-...">
+<p class="hint">API key নিজের OpenAI API account থেকে নিতে হবে। বিশ্লেষণে API খরচ হতে পারে। হোস্ট করা অ্যাপে নিরাপত্তার জন্য সার্ভার অ্যাডমিনের সেট করা API key ব্যবহার করাই ভালো।</p>
+<div class="notice">ভিডিও আপলোডের সর্বোচ্চ সীমা সার্ভারের সেটিংসের ওপর নির্ভর করে। শুধুমাত্র নিজের তৈরি বা ব্যবহারের অনুমতি আছে এমন ভিডিও দিন। অন্যের ভিডিও পুনঃপ্রকাশে কপিরাইট ও YouTube নীতিমালা মানতে হবে।</div>
+<button class="primary" id="go" onclick="upload()">⬆️ আপলোড করে AI বিশ্লেষণ করুন</button><div id="status" class="status hide"></div>
+</section>
+<section class="card hide" id="results"><h2>⭐ সেরা সিনগুলো</h2><div id="list"></div></section>
+<p class="hint" style="text-align:center">মোবাইল ব্রাউজার অ্যাপ · ক্লিপ তৈরি করতে সার্ভারে FFmpeg প্রয়োজন</p>
+</main>
+<script>
+let job=null,timer=null;const el=id=>document.getElementById(id);
+function clock(v){let s=Math.max(0,Math.floor(v));return [Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(n=>String(n).padStart(2,'0')).join(':')}
+function msg(t){el('status').textContent=t;el('status').classList.remove('hide')}
+async function upload(){
+ let f=el('video').files[0],k=el('key').value.trim();if(!f){alert('আগে ভিডিও নির্বাচন করুন।');return}
+ el('go').disabled=true;msg('ভিডিও আপলোড হচ্ছে… বড় ভিডিও হলে সময় লাগতে পারে।');
+ let fd=new FormData();fd.append('video',f);fd.append('api_key',k);
+ try{let r=await fetch('/api/upload',{method:'POST',body:fd}),d=await r.json();if(!r.ok)throw Error(d.detail||'আপলোড ব্যর্থ');
+ job=d.job_id;msg('আপলোড সম্পন্ন। AI দৃশ্য বিশ্লেষণ করছে…');timer=setInterval(check,5000);check()
+ }catch(e){msg('সমস্যা: '+e.message);el('go').disabled=false}
+}
+async function check(){try{let r=await fetch('/api/status/'+job),d=await r.json();
+ if(d.status==='done'){clearInterval(timer);el('go').disabled=false;msg('বিশ্লেষণ সম্পন্ন · ভিডিও দৈর্ঘ্য '+clock(d.duration));render(d.highlights||[])}
+ else if(d.status==='error'){clearInterval(timer);el('go').disabled=false;msg('বিশ্লেষণে সমস্যা: '+d.error)}
+ else msg(d.progress||'বিশ্লেষণ চলছে…')
+ }catch(e){msg('সার্ভারের সঙ্গে যোগাযোগ করা যাচ্ছে না।')}}
+function render(items){el('results').classList.remove('hide');let list=el('list');list.innerHTML='';
+ if(!items.length){list.textContent='কোনো হাইলাইট পাওয়া যায়নি।';return}
+ items.forEach((x,i)=>{let box=document.createElement('div');box.className='result';
+ let h=document.createElement('h3');h.textContent=(i+1)+'. '+x.title;
+ let m=document.createElement('div');m.className='meta';m.innerHTML='<span class="score">'+clock(x.start)+' – '+clock(x.end)+'</span>　স্কোর '+x.score+'/10';
+ let p=document.createElement('p');p.textContent=x.reason;
+ let b=document.createElement('button');b.textContent='⬇️ এই ক্লিপ ডাউনলোড';b.className='download';
+ b.onclick=async()=>{b.disabled=true;b.textContent='ক্লিপ তৈরি হচ্ছে…';try{let r=await fetch('/api/clip/'+job,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:x.start,end:x.end})});let d=await r.json();if(!r.ok)throw Error(d.detail||'ক্লিপ তৈরি হয়নি');let a=document.createElement('a');a.href=d.download;a.download='food-highlight.mp4';a.click()}catch(e){alert(e.message)}finally{b.disabled=false;b.textContent='⬇️ এই ক্লিপ ডাউনলোড'}};
+ box.append(h,m,p,b);list.append(box)})
+}
+</script></body></html>
